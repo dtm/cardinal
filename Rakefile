@@ -1,4 +1,5 @@
 DEBUG = false
+TEST_WITH_CRUBY = false
 CONFIG = {} 
 $tests = 0
 $test_files = 0
@@ -46,9 +47,11 @@ def them
     $pl ? "them" : "it"
 end
 
-def parrot(input, output, grammar="", target="")
+def parrot(input, output="", grammar="", target="")
     target = "--target=#{target}" if target != ""
-    sh "#{CONFIG[:parrot]} #{grammar} #{target} -o #{output} #{input}"
+    output = "-o #{output}" if output != ""
+    puts "Running parrot: #{CONFIG[:parrot]} #{grammar} #{target} #{output} #{input}" if DEBUG
+    sh "#{CONFIG[:parrot]} #{grammar} #{target} #{output} #{input}"
 end
 
 def make_exe(pbc)
@@ -57,19 +60,37 @@ end
 
 def test(file, name="")
     print "Adding #{file} as a test " if DEBUG
+    pir_file = file.gsub(/.t$/,'.pir')
+    if pir_file =~ /\//
+        pir_file.gsub!(/\/([^\/]+)$/) {"/gen_#$1"}
+    else
+        pir_file = "gen_#{pir_file}"
+    end
     if name == ""
         name = file.gsub(/.t$/,'').gsub(/^[0-9]+-/,'').gsub(/-/,'').gsub(/.*\//,'')
     end
-    puts "named #{name}" if DEBUG
-    task name => ["cardinal", "Test.pir"] do
-        run_test file
+    if TEST_WITH_CRUBY
+        task name do
+            run_test file
+        end
+    else
+        file "t/#{pir_file}" => [:config, "t/#{file}", "src/parser/actions.pm", "src/parser/grammar.pg"] do
+            parrot("t/#{file}", "t/#{pir_file}", "cardinal.pbc", "pir")
+        end
+        puts "named #{name}" if DEBUG
+        task name => [:config, "t/#{pir_file}", "cardinal.pbc", "Test.pir"] do
+            run_test pir_file, name
+        end
     end
 end
 
-def run_test(file)
+def run_test(file,name="")
     puts file if DEBUG
+    name = file if name == ""
     $test_files += 1
-    IO.popen("./cardinal t/#{file}", "r") do |t|
+    command = "#{CONFIG[:parrot]}"
+    command = "ruby" if TEST_WITH_CRUBY
+    IO.popen("#{command} t/#{file}", "r") do |t|
         begin 
             plan = t.readline
         rescue EOFError
@@ -133,7 +154,7 @@ def run_test(file)
             result = "Complete failure... no plan given"
             $failures += 1
         end
-        puts "Running test #{file} #{result}"
+        puts "Running test #{name} #{result}"
     end
 end
 
@@ -354,7 +375,7 @@ namespace :test do |ns|
         puts " #{$ok} tests passed, #{$unexpected_passes} of which were unexpected." 
         unless $u_p_files.empty?
             $u_p_files.uniq!
-            $pl = $u_p_files > 1
+            $pl = $u_p_files.length > 1
             puts " Unexpected passes were found in the following #{pl "file"}:"
             $u_p_files.each do |pass|
                 puts "  #{pass}"
