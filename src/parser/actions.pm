@@ -160,18 +160,14 @@ method end($/) {
 }
 
 method indexed_assignment($/) {
-    my $keys;
+    my $key := $<key>.ast();
     my $rhs := $<rhs>.ast();
     my $primary := $<basic_primary>.ast();
-
-		if $<keys> {
-		 	$keys := $<keys>[0].ast();
-		}
 
     my $past := PAST::Op.new( :name('[]='), :pasttype('callmethod'), :node($/) );
 
     $past.push( $primary );
-		while $keys[0] { $past.push( $keys.shift() ); }
+    $past.push( $key );
     $past.push( $rhs );
 
     make $past;
