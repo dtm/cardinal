@@ -1,5 +1,5 @@
-DEBUG = false
-TEST_WITH_CRUBY = false
+DEBUG = ENV['debug'] || false
+ALTERNATIVE_RUBY = ENV['test_with'] || false
 CONFIG = {} 
 $tests = 0
 $test_files = 0
@@ -69,12 +69,12 @@ def test(file, name="")
     if name == ""
         name = file.gsub(/.t$/,'').gsub(/^[0-9]+-/,'').gsub(/-/,'').gsub(/.*\//,'')
     end
-    if TEST_WITH_CRUBY
+    if ALTERNATIVE_RUBY
         task name do
             run_test file
         end
     else
-        file "t/#{pir_file}" => [:config, "t/#{file}", "src/parser/actions.pm", "src/parser/grammar.pg"] do
+        file "t/#{pir_file}" => [:config, "t/#{file}", "src/gen_actions.pir", "src/gen_grammar.pir"] do
             parrot("t/#{file}", "t/#{pir_file}", "cardinal.pbc", "pir")
         end
         puts "named #{name}" if DEBUG
@@ -88,8 +88,7 @@ def run_test(file,name="")
     puts file if DEBUG
     name = file if name == ""
     $test_files += 1
-    command = "#{CONFIG[:parrot]}"
-    command = "ruby" if TEST_WITH_CRUBY
+    command = ALTERNATIVE_RUBY || CONFIG[:parrot]
     IO.popen("#{command} t/#{file}", "r") do |t|
         begin 
             plan = t.readline
@@ -351,6 +350,7 @@ namespace :test do |ns|
         test "string/cmp.t"
         test "string/concat.t"
         test "string/downcase.t"
+        test "string/empty.t"
         test "string/eq.t"
         test "string/mult.t"
         test "string/new.t"
@@ -359,7 +359,7 @@ namespace :test do |ns|
         test "string/reverse.t"
         test "string/upcase.t"
 
-        task :all => [:add, :block, :capitalize, :chops, :cmp, :concat, :downcase, :eq, :mult, :new, :quote, :random_access, :reverse, :upcase]
+        task :all => [:add, :block, :capitalize, :chops, :cmp, :concat, :downcase, :empty, :eq, :mult, :new, :quote, :random_access, :reverse, :upcase]
     end
 
     task :basic => [:sanity, :stmts, :functions, :return, :indexed, :opcmp, :loops, :class, :test, :regex, :slurpy, :gather, :other, :alias, :assignment, :blocks, :constants, :continuation, :freeze, :gc, :nil, :proc, :range, :splat, :time, :yield, :zip]
