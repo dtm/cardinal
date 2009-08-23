@@ -10,5 +10,5 @@ is a.count(), 4, 'count, no args '
 
 is a.count(2), 1, 'count, obj arg'
 
-is a.count{|x| x>2 }, 2, 'count, block arg'
+is a.count{|x| x>2 }, 2, 'nitems, block arg'
 
