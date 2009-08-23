@@ -162,10 +162,10 @@ list_cmp_loop_end:
     goto match
 
 no_match:
-    $P0 = get_hll_global ['Bool'], 'False'
+    $P0 = get_hll_global 'false'
     .return($P0)
 match:
-    $P0 = get_hll_global ['Bool'], 'True'
+    $P0 = get_hll_global 'true'
     .return($P0)
 .end
 
@@ -343,10 +343,10 @@ Return true if self contains ELEMENT
     eq $P0, args, done_t
     goto iter_loop
    done_f:
-        $P0 = get_hll_global ['Bool'], 'False'
+        $P0 = get_hll_global 'false'
         .return($P0)
    done_t:
-        $P0 = get_hll_global ['Bool'], 'True'
+        $P0 = get_hll_global 'true'
         .return($P0)
 .end
 
@@ -449,10 +449,10 @@ Return true is C<self> is of size 0
     if len == 0 goto empty
     goto not_empty
     empty:
-       $P0 = get_hll_global ['Bool'], 'True'
+       $P0 = get_hll_global 'true'
        .return ($P0)
     not_empty:
-        $P0 = get_hll_global ['Bool'], 'False'
+        $P0 = get_hll_global 'false'
         .return ($P0)
 .end
 
@@ -819,9 +819,9 @@ if passed, otherwise returns nil.
     if len == i goto done
 
     $P0 = self[i]
-    $I0 = block($P0)
+    $P1 = block($P0)
 
-    unless $I0 goto finish_loop
+    unless $P1 goto finish_loop
 
     delete self[i]
 
@@ -862,7 +862,7 @@ Checks to see if the specified index or indices have been assigned to.  Returns 
     goto loop
 
   done:
-    .tailcall 'prefix:?'(test)
+    .tailcall 'bool'(test)
 .end
 
 =item kv()
@@ -1787,48 +1787,62 @@ Operator form for either repetition (when argument is an Integer), or as a short
 .sub 'infix:&' :multi('CardinalArray','CardinalArray')
     .param pmc this
     .param pmc that
-    .local pmc array
+    .local pmc inter, it, incl, item
+    
+    inter = new 'CardinalArray'
+    
+    it = iter this
 
-    array = this + that
-    array.'uniq!'()
+  this_loop:
+    unless it goto this_end
+    
+    item = shift it
+    incl = that.'include?'(item)
+    unless incl goto this_loop
+    
+    inter.'push'(item)
+    goto this_loop
+ 
+  this_end:
+    it = iter that
 
-    .return (array)
+  that_loop:
+    unless it goto that_end
+
+    item = shift it
+    incl = this.'include?'(item)
+    unless incl goto that_loop
+
+    inter.'push'(item)
+    goto that_loop
+
+  that_end:
+    inter.'uniq!'()
+
+    .return (inter)
 .end
 
 .sub 'infix:-' :multi('CardinalArray','CardinalArray')
     .param pmc this
     .param pmc that
-    .local pmc array, hash, key, includes
+    .local pmc array, includes, elem
     .local int i, len
 
     array = new 'CardinalArray'
-    hash = new 'CardinalHash'
-    len = elements that
-    i = 0
 
-  hash_loop:
-    if i == len goto hash_done
-
-    key = that[i]
-    hash[key] = 1
-
-    i = i + 1
-    goto hash_loop
-
-  hash_done:
     len = elements this
     i = 0
 
   diff_loop:
     if i == len goto diff_done
         
-    key = this[i]
-    includes = hash.'includes?'(key)
+    elem = this[i]
+    includes = that.'include?'(elem)
     
     i = i + 1
-    unless includes goto diff_loop
+    if includes goto diff_loop
 
-    array.'push'(key)
+    array.'push'(elem)
 
     goto diff_loop
   
